@@ -49,7 +49,7 @@ body {
 
 .controls {
     display: grid;
-    grid-template-columns: 1fr 180px 220px 250px;
+    grid-template-columns: 1fr 160px 160px 220px 250px;
     gap: 10px;
     margin-bottom: 20px;
 }
@@ -68,6 +68,16 @@ select {
     border-radius: 8px;
     padding: 18px;
     margin-bottom: 15px;
+}
+
+.badge {
+    display: inline-block;
+    background: #e9eef5;
+    color: #333;
+    border-radius: 4px;
+    padding: 3px 7px;
+    font-size: 12px;
+    margin-bottom: 8px;
 }
 
 .citation {
@@ -107,7 +117,7 @@ a {
     color: #005ea8;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
     .controls {
         grid-template-columns: 1fr;
     }
@@ -127,17 +137,21 @@ a {
 </div>
 
 <div class="subtitle">
-    Searchable database of CHOPR publications. Currently includes publications tracked in 2025 and 2026. Historical publications will be added over time.
+    Searchable database of CHOPR publications and curated CHOPR Reading List items. Currently includes publications tracked in 2025 and 2026, plus the CHOPR Reading List. Historical publications will be added over time.
 </div>
 
 <div class="stats" id="stats">
-    Loading publications...
+    Loading records...
 </div>
 
 <div class="controls">
     <input type="text"
            id="searchBox"
-           placeholder="Search by author, title, citation, PMCID, URL, or keyword...">
+           placeholder="Search by author, title, citation, category, PMCID, URL, or keyword...">
+
+    <select id="recordTypeFilter">
+        <option value="">All Records</option>
+    </select>
 
     <select id="yearFilter">
         <option value="">All Years</option>
@@ -157,11 +171,12 @@ a {
 <script>
 
 const files = [
-    { year: "2025", path: "publications_2025.csv" },
-    { year: "2026", path: "publications_2026.csv" }
+    { recordType: "Publication", defaultYear: "2025", path: "publications_2025.csv" },
+    { recordType: "Publication", defaultYear: "2026", path: "publications_2026.csv" },
+    { recordType: "Reading List", defaultYear: "", path: "reading_list.csv" }
 ];
 
-let publications = [];
+let records = [];
 
 function clean(value) {
     return value ? String(value).trim() : "";
@@ -215,48 +230,89 @@ function loadCSV(file) {
             skipEmptyLines: true,
 
             complete: function(results) {
-                const rows = results.data.map(row => ({
-                    year: file.year,
+                const rows = results.data.map(row => {
+                    const yearFromRow = get(row, [
+                        "Year",
+                        "Publication Year",
+                        "year"
+                    ]);
 
-                    faculty: get(row, [
-                        "Primary CHOPR Author/Contact - FACULTY LIST - USE DROP DOWN LIST"
-                    ]),
+                    const categoryFromRow = get(row, [
+                        "Category",
+                        "Reading List Category",
+                        "category"
+                    ]);
 
-                    fellow: get(row, [
-                        "Primary CHOPR Author/Contact - FELLOWS - USE DROP DOWN LIST"
-                    ]),
-
-                    allAuthors: get(row, [
-                        "All CHOPR Authors (Last name only)"
-                    ]),
-
-                    citation: get(row, [
+                    const citationFromRow = get(row, [
                         "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2025 to present)",
-                        "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2026 to present)"
-                    ]),
+                        "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2026 to present)",
+                        "Title/Citation",
+                        "Title / Citation",
+                        "Citation",
+                        "Title",
+                        "title"
+                    ]);
 
-                    date: get(row, [
-                        "Date of Acceptance (Tues mtg agenda date)"
-                    ]),
+                    const urlFromRow = get(row, [
+                        "Once published, URL to a) PMC version or b) if not NIH, URL to journal site (RA)",
+                        "URL",
+                        "Link",
+                        "url"
+                    ]);
 
-                    status: get(row, [
-                        "Current Status (accepted or published - please use drop down)"
-                    ]),
+                    return {
+                        recordType: file.recordType,
+                        year: yearFromRow || file.defaultYear,
+                        category: categoryFromRow,
 
-                    type: get(row, [
-                        "Publication Type (Academic Journal Article; Media Op-Ed, etc.)-- Use drop down list"
-                    ]),
+                        faculty: get(row, [
+                            "Primary CHOPR Author/Contact - FACULTY LIST - USE DROP DOWN LIST",
+                            "Primary CHOPR Author",
+                            "Author",
+                            "Authors"
+                        ]),
 
-                    pmcid: get(row, [
-                        "PMCID (non-journal = N/A)",
-                        "PMCID"
-                    ]),
+                        fellow: get(row, [
+                            "Primary CHOPR Author/Contact - FELLOWS - USE DROP DOWN LIST"
+                        ]),
 
-                    url: get(row, [
-                        "Once published, URL to a) PMC version or b) if not NIH, URL to journal site (RA)"
-                    ])
+                        allAuthors: get(row, [
+                            "All CHOPR Authors (Last name only)",
+                            "All CHOPR Authors",
+                            "Authors"
+                        ]),
 
-                })).filter(pub => pub.citation);
+                        citation: citationFromRow,
+
+                        date: get(row, [
+                            "Date of Acceptance (Tues mtg agenda date)",
+                            "Date"
+                        ]),
+
+                        status: get(row, [
+                            "Current Status (accepted or published - please use drop down)",
+                            "Status"
+                        ]),
+
+                        type: get(row, [
+                            "Publication Type (Academic Journal Article; Media Op-Ed, etc.)-- Use drop down list",
+                            "Publication Type",
+                            "Type"
+                        ]),
+
+                        pmcid: get(row, [
+                            "PMCID (non-journal = N/A)",
+                            "PMCID"
+                        ]),
+
+                        url: urlFromRow,
+
+                        notes: get(row, [
+                            "NOTES",
+                            "Notes"
+                        ])
+                    };
+                }).filter(record => record.citation);
 
                 resolve(rows);
             },
@@ -269,19 +325,24 @@ function loadCSV(file) {
 }
 
 function populateFilters() {
+    const recordTypes =
+        [...new Set(records.map(r => r.recordType).filter(Boolean))]
+        .sort();
+
     const years =
-        [...new Set(publications.map(p => p.year))]
+        [...new Set(records.map(r => r.year).filter(Boolean))]
         .sort()
         .reverse();
 
     const statuses =
-        [...new Set(publications.map(p => p.status).filter(Boolean))]
+        [...new Set(records.map(r => r.status).filter(Boolean))]
         .sort();
 
     const types =
-        [...new Set(publications.map(p => p.type).filter(Boolean))]
+        [...new Set(records.map(r => r.type).filter(Boolean))]
         .sort();
 
+    addOptions("recordTypeFilter", recordTypes);
     addOptions("yearFilter", years);
     addOptions("statusFilter", statuses);
     addOptions("typeFilter", types);
@@ -306,6 +367,9 @@ function renderResults() {
         .value
         .toLowerCase();
 
+    const recordType =
+        document.getElementById("recordTypeFilter").value;
+
     const year =
         document.getElementById("yearFilter").value;
 
@@ -315,29 +379,33 @@ function renderResults() {
     const type =
         document.getElementById("typeFilter").value;
 
-    const filtered = publications.filter(pub => {
+    const filtered = records.filter(record => {
         const searchable = [
-            pub.year,
-            pub.faculty,
-            pub.fellow,
-            pub.allAuthors,
-            pub.citation,
-            pub.status,
-            pub.type,
-            pub.pmcid,
-            pub.url
+            record.recordType,
+            record.year,
+            record.category,
+            record.faculty,
+            record.fellow,
+            record.allAuthors,
+            record.citation,
+            record.status,
+            record.type,
+            record.pmcid,
+            record.url,
+            record.notes
         ].join(" ").toLowerCase();
 
         return (
             searchable.includes(query) &&
-            (!year || pub.year === year) &&
-            (!status || pub.status === status) &&
-            (!type || pub.type === type)
+            (!recordType || record.recordType === recordType) &&
+            (!year || record.year === year) &&
+            (!status || record.status === status) &&
+            (!type || record.type === type)
         );
     });
 
     document.getElementById("stats").textContent =
-        `${filtered.length} publications shown • ${publications.length} total loaded`;
+        `${filtered.length} records shown • ${records.length} total loaded`;
 
     const results = document.getElementById("results");
     results.innerHTML = "";
@@ -345,62 +413,80 @@ function renderResults() {
     if (filtered.length === 0) {
         results.innerHTML =
             `<div class="warning">
-                No publications match your current search.
+                No records match your current search.
             </div>`;
 
         return;
     }
 
-    filtered.forEach(pub => {
+    filtered.forEach(record => {
         const div = document.createElement("div");
-
         div.className = "pub";
 
         const liveCitation =
-            makeLinks(pub.citation);
+            makeLinks(record.citation);
 
-        const publicationUrl =
-            normalizeUrl(pub.url);
+        const recordUrl =
+            normalizeUrl(record.url);
 
         div.innerHTML = `
+            <div class="badge">${record.recordType || "Record"}</div>
+
             <div class="citation">
                 ${liveCitation}
             </div>
 
             <div class="meta">
-                <strong>Year:</strong> ${pub.year || "N/A"} |
-                <strong>Status:</strong> ${pub.status || "N/A"} |
-                <strong>Type:</strong> ${pub.type || "N/A"}
-            </div>
-
-            <div class="meta">
-                <strong>Faculty:</strong> ${pub.faculty || "N/A"} |
-                <strong>Fellow:</strong> ${pub.fellow || "N/A"}
+                <strong>Year:</strong> ${record.year || "N/A"} |
+                <strong>Category:</strong> ${record.category || "N/A"} |
+                <strong>Status:</strong> ${record.status || "N/A"} |
+                <strong>Type:</strong> ${record.type || "N/A"}
             </div>
 
             ${
-                pub.allAuthors
+                record.faculty || record.fellow
                 ?
                 `<div class="meta">
-                    <strong>All CHOPR Authors:</strong> ${pub.allAuthors}
+                    <strong>Faculty:</strong> ${record.faculty || "N/A"} |
+                    <strong>Fellow:</strong> ${record.fellow || "N/A"}
+                </div>`
+                :
+                ""
+            }
+
+            ${
+                record.allAuthors
+                ?
+                `<div class="meta">
+                    <strong>All CHOPR Authors:</strong> ${record.allAuthors}
                 </div>`
                 :
                 ""
             }
 
             <div class="meta">
-                <strong>Date:</strong> ${pub.date || "N/A"} |
-                <strong>PMCID:</strong> ${pub.pmcid || "N/A"}
+                <strong>Date:</strong> ${record.date || "N/A"} |
+                <strong>PMCID:</strong> ${record.pmcid || "N/A"}
             </div>
 
             ${
-                publicationUrl
+                record.notes
+                ?
+                `<div class="meta">
+                    <strong>Notes:</strong> ${record.notes}
+                </div>`
+                :
+                ""
+            }
+
+            ${
+                recordUrl
                 ?
                 `<a class="button"
-                    href="${publicationUrl}"
+                    href="${recordUrl}"
                     target="_blank"
                     rel="noopener noreferrer">
-                    View Publication
+                    View Link
                 </a>`
                 :
                 ""
@@ -415,17 +501,17 @@ async function init() {
     const data =
         await Promise.all(files.map(loadCSV));
 
-    publications =
+    records =
         data.flat();
 
-    if (publications.length === 0) {
+    if (records.length === 0) {
         document.getElementById("results").innerHTML =
             `<div class="warning">
-                No publication data could be loaded. Confirm that publications_2025.csv and publications_2026.csv are in the same docs folder as index.html.
+                No data could be loaded. Confirm that publications_2025.csv, publications_2026.csv, and reading_list.csv are in the same docs folder as index.html.
             </div>`;
 
         document.getElementById("stats").textContent =
-            "0 publications loaded";
+            "0 records loaded";
 
         return;
     }
@@ -436,6 +522,9 @@ async function init() {
 
 document.getElementById("searchBox")
     .addEventListener("input", renderResults);
+
+document.getElementById("recordTypeFilter")
+    .addEventListener("change", renderResults);
 
 document.getElementById("yearFilter")
     .addEventListener("change", renderResults);
