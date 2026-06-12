@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>CHOPR Publications Database</title>
-
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
   <style>
@@ -58,6 +57,14 @@
       font-size: 14px;
     }
 
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+    }
+
     a {
       color: #005ea8;
     }
@@ -78,13 +85,13 @@
   >
 
   <div class="count" id="count">Loading publications...</div>
-
+  <div id="message"></div>
   <div id="results"></div>
 
   <script>
     const files = [
-      { year: "2025", path: "../data/publications_2025.csv" },
-      { year: "2026", path: "../data/publications_2026.csv" }
+      { year: "2025", path: "publications_2025.csv" },
+      { year: "2026", path: "publications_2026.csv" }
     ];
 
     let publications = [];
@@ -111,27 +118,35 @@
           complete: function(results) {
             const rows = results.data.map(row => ({
               year: file.year,
+
               faculty: get(row, [
                 "Primary CHOPR Author/Contact - FACULTY LIST - USE DROP DOWN LIST"
               ]),
+
               fellow: get(row, [
                 "Primary CHOPR Author/Contact - FELLOWS - USE DROP DOWN LIST"
               ]),
+
               citation: get(row, [
                 "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2025 to present)"
               ]),
+
               date: get(row, [
                 "Date of Acceptance (Tues mtg agenda date)"
               ]),
+
               status: get(row, [
                 "Current Status (accepted or published - please use drop down)"
               ]),
+
               type: get(row, [
                 "Publication Type (Academic Journal Article; Media Op-Ed, etc.)-- Use drop down list"
               ]),
+
               pmcid: get(row, [
                 "PMCID (non-journal = N/A)"
               ]),
+
               url: get(row, [
                 "Once published, URL to a) PMC version or b) if not NIH, URL to journal site (RA)"
               ])
@@ -195,7 +210,11 @@
             <strong>PMCID:</strong> ${pub.pmcid || "N/A"}
           </div>
 
-          ${pub.url ? `<div class="meta"><a href="${pub.url}" target="_blank">View publication</a></div>` : ""}
+          ${
+            pub.url
+              ? `<div class="meta"><a href="${pub.url}" target="_blank">View publication</a></div>`
+              : ""
+          }
         `;
 
         resultsDiv.appendChild(div);
@@ -205,6 +224,17 @@
     async function init() {
       const allRows = await Promise.all(files.map(loadCSV));
       publications = allRows.flat();
+
+      if (publications.length === 0) {
+        document.getElementById("count").textContent = "0 publications shown";
+        document.getElementById("message").innerHTML =
+          `<div class="warning">
+            No publications loaded. Make sure <strong>publications_2025.csv</strong>
+            and <strong>publications_2026.csv</strong> are in the same <strong>docs</strong>
+            folder as <strong>index.html</strong>.
+          </div>`;
+        return;
+      }
 
       publications.sort((a, b) => {
         return b.year.localeCompare(a.year);
