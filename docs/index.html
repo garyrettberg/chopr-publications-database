@@ -24,6 +24,8 @@ body {
 
 .header img {
     height: 90px;
+    max-width: 260px;
+    object-fit: contain;
 }
 
 .header-text h1 {
@@ -116,7 +118,7 @@ a {
 <body>
 
 <div class="header">
-    <img src="images/CHOPR_logo.png" alt="CHOPR Logo">
+    <img src="./images/CHOPR_logo.png" alt="CHOPR Logo">
 
     <div class="header-text">
         <h1>CHOPR Publications Database</h1>
@@ -187,37 +189,33 @@ function normalizeUrl(url) {
 }
 
 function makeLinks(text) {
-
     if (!text) return "";
 
     return text.replace(
         /(https?:\/\/[^\s]+|www\.[^\s]+)/g,
         function(url) {
-
-            let href = url;
+            let cleanUrl = url.replace(/[.,;)]$/, "");
+            let punctuation = url.slice(cleanUrl.length);
+            let href = cleanUrl;
 
             if (!href.startsWith("http")) {
                 href = "https://" + href;
             }
 
-            return `<a href="${href}" target="_blank">${url}</a>`;
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${punctuation}`;
         }
     );
 }
 
 function loadCSV(file) {
-
     return new Promise((resolve) => {
-
         Papa.parse(file.path, {
             download: true,
             header: true,
             skipEmptyLines: true,
 
             complete: function(results) {
-
                 const rows = results.data.map(row => ({
-
                     year: file.year,
 
                     faculty: get(row, [
@@ -228,8 +226,13 @@ function loadCSV(file) {
                         "Primary CHOPR Author/Contact - FELLOWS - USE DROP DOWN LIST"
                     ]),
 
+                    allAuthors: get(row, [
+                        "All CHOPR Authors (Last name only)"
+                    ]),
+
                     citation: get(row, [
-                        "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2025 to present)"
+                        "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2025 to present)",
+                        "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2026 to present)"
                     ]),
 
                     date: get(row, [
@@ -245,7 +248,8 @@ function loadCSV(file) {
                     ]),
 
                     pmcid: get(row, [
-                        "PMCID (non-journal = N/A)"
+                        "PMCID (non-journal = N/A)",
+                        "PMCID"
                     ]),
 
                     url: get(row, [
@@ -261,12 +265,10 @@ function loadCSV(file) {
                 resolve([]);
             }
         });
-
     });
 }
 
 function populateFilters() {
-
     const years =
         [...new Set(publications.map(p => p.year))]
         .sort()
@@ -286,11 +288,9 @@ function populateFilters() {
 }
 
 function addOptions(id, values) {
-
     const select = document.getElementById(id);
 
     values.forEach(value => {
-
         const option = document.createElement("option");
 
         option.value = value;
@@ -301,7 +301,6 @@ function addOptions(id, values) {
 }
 
 function renderResults() {
-
     const query =
         document.getElementById("searchBox")
         .value
@@ -317,18 +316,16 @@ function renderResults() {
         document.getElementById("typeFilter").value;
 
     const filtered = publications.filter(pub => {
-
         const searchable = [
-
             pub.year,
             pub.faculty,
             pub.fellow,
+            pub.allAuthors,
             pub.citation,
             pub.status,
             pub.type,
             pub.pmcid,
             pub.url
-
         ].join(" ").toLowerCase();
 
         return (
@@ -343,11 +340,9 @@ function renderResults() {
         `${filtered.length} publications shown • ${publications.length} total loaded`;
 
     const results = document.getElementById("results");
-
     results.innerHTML = "";
 
     if (filtered.length === 0) {
-
         results.innerHTML =
             `<div class="warning">
                 No publications match your current search.
@@ -357,7 +352,6 @@ function renderResults() {
     }
 
     filtered.forEach(pub => {
-
         const div = document.createElement("div");
 
         div.className = "pub";
@@ -369,7 +363,6 @@ function renderResults() {
             normalizeUrl(pub.url);
 
         div.innerHTML = `
-
             <div class="citation">
                 ${liveCitation}
             </div>
@@ -385,6 +378,16 @@ function renderResults() {
                 <strong>Fellow:</strong> ${pub.fellow || "N/A"}
             </div>
 
+            ${
+                pub.allAuthors
+                ?
+                `<div class="meta">
+                    <strong>All CHOPR Authors:</strong> ${pub.allAuthors}
+                </div>`
+                :
+                ""
+            }
+
             <div class="meta">
                 <strong>Date:</strong> ${pub.date || "N/A"} |
                 <strong>PMCID:</strong> ${pub.pmcid || "N/A"}
@@ -395,22 +398,20 @@ function renderResults() {
                 ?
                 `<a class="button"
                     href="${publicationUrl}"
-                    target="_blank">
+                    target="_blank"
+                    rel="noopener noreferrer">
                     View Publication
                 </a>`
                 :
                 ""
             }
-
         `;
 
         results.appendChild(div);
-
     });
 }
 
 async function init() {
-
     const data =
         await Promise.all(files.map(loadCSV));
 
@@ -418,17 +419,18 @@ async function init() {
         data.flat();
 
     if (publications.length === 0) {
-
         document.getElementById("results").innerHTML =
             `<div class="warning">
-                No publication data could be loaded.
+                No publication data could be loaded. Confirm that publications_2025.csv and publications_2026.csv are in the same docs folder as index.html.
             </div>`;
+
+        document.getElementById("stats").textContent =
+            "0 publications loaded";
 
         return;
     }
 
     populateFilters();
-
     renderResults();
 }
 
