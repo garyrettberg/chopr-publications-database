@@ -7,121 +7,24 @@
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-body {
-    font-family: Arial, sans-serif;
-    margin: 40px;
-    color: #222;
-    background: #f7f7f7;
-}
-
-.header {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 20px;
-    flex-wrap: wrap;
-}
-
-.header img {
-    height: 90px;
-    max-width: 260px;
-    object-fit: contain;
-}
-
-.header-text h1 {
-    margin: 0;
-}
-
-.header-text p {
-    margin: 5px 0 0 0;
-    color: #666;
-}
-
-.subtitle {
-    margin-bottom: 20px;
-    color: #555;
-}
-
-.stats {
-    font-weight: bold;
-    margin-bottom: 20px;
-}
-
-.controls {
-    display: grid;
-    grid-template-columns: 1fr 160px 160px 220px 250px;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-input,
-select {
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    font-size: 15px;
-}
-
-.pub {
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    padding: 18px;
-    margin-bottom: 15px;
-}
-
-.badge {
-    display: inline-block;
-    background: #e9eef5;
-    color: #333;
-    border-radius: 4px;
-    padding: 3px 7px;
-    font-size: 12px;
-    margin-bottom: 8px;
-}
-
-.citation {
-    font-size: 16px;
-    font-weight: bold;
-    margin-bottom: 10px;
-}
-
-.meta {
-    color: #555;
-    margin-top: 6px;
-    font-size: 14px;
-}
-
-.button {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 8px 12px;
-    background: #005ea8;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-}
-
-.button:hover {
-    background: #00457c;
-}
-
-.warning {
-    background: #fff3cd;
-    border: 1px solid #ffeeba;
-    border-radius: 6px;
-    padding: 12px;
-}
-
-a {
-    color: #005ea8;
-}
-
-@media (max-width: 1000px) {
-    .controls {
-        grid-template-columns: 1fr;
-    }
-}
+body { font-family: Arial, sans-serif; margin: 40px; color: #222; background: #f7f7f7; }
+.header { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; flex-wrap: wrap; }
+.header img { height: 90px; max-width: 260px; object-fit: contain; }
+.header-text h1 { margin: 0; }
+.header-text p { margin: 5px 0 0 0; color: #666; }
+.subtitle { margin-bottom: 20px; color: #555; }
+.stats { font-weight: bold; margin-bottom: 20px; }
+.controls { display: grid; grid-template-columns: 1fr 160px 160px 220px 250px; gap: 10px; margin-bottom: 20px; }
+input, select { padding: 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 15px; }
+.pub { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 18px; margin-bottom: 15px; }
+.badge { display: inline-block; background: #e9eef5; color: #333; border-radius: 4px; padding: 3px 7px; font-size: 12px; margin-bottom: 8px; }
+.citation { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+.meta { color: #555; margin-top: 6px; font-size: 14px; }
+.button { display: inline-block; margin-top: 10px; padding: 8px 12px; background: #005ea8; color: white; text-decoration: none; border-radius: 5px; }
+.button:hover { background: #00457c; }
+.warning { background: #fff3cd; border: 1px solid #ffeeba; border-radius: 6px; padding: 12px; }
+a { color: #005ea8; }
+@media (max-width: 1000px) { .controls { grid-template-columns: 1fr; } }
 </style>
 </head>
 
@@ -129,7 +32,6 @@ a {
 
 <div class="header">
     <img src="./images/CHOPR_logo.png" alt="CHOPR Logo">
-
     <div class="header-text">
         <h1>CHOPR Publications Database</h1>
         <p>Center for Health Outcomes and Policy Research</p>
@@ -140,14 +42,10 @@ a {
     Searchable database of CHOPR publications and curated CHOPR Reading List items. Currently includes publications tracked in 2025 and 2026, plus the CHOPR Reading List. Historical publications will be added over time.
 </div>
 
-<div class="stats" id="stats">
-    Loading records...
-</div>
+<div class="stats" id="stats">Loading records...</div>
 
 <div class="controls">
-    <input type="text"
-           id="searchBox"
-           placeholder="Search by author, title, citation, category, PMCID, URL, or keyword...">
+    <input type="text" id="searchBox" placeholder="Search by author, title, citation, category, PMCID, URL, or keyword...">
 
     <select id="recordTypeFilter">
         <option value="">All Records</option>
@@ -169,7 +67,6 @@ a {
 <div id="results"></div>
 
 <script>
-
 const files = [
     { recordType: "Publication", defaultYear: "2025", path: "publications_2025.csv" },
     { recordType: "Publication", defaultYear: "2026", path: "publications_2026.csv" },
@@ -182,24 +79,38 @@ function clean(value) {
     return value ? String(value).trim() : "";
 }
 
+function normalizeHeader(value) {
+    return clean(value)
+        .replace(/\s+/g, " ")
+        .replace(/\uFEFF/g, "")
+        .trim();
+}
+
+function normalizeRow(row) {
+    const cleaned = {};
+    Object.keys(row).forEach(key => {
+        cleaned[normalizeHeader(key)] = row[key];
+    });
+    return cleaned;
+}
+
 function get(row, names) {
+    const normalizedRow = normalizeRow(row);
+
     for (const name of names) {
-        if (row[name] !== undefined) {
-            return clean(row[name]);
+        const normalizedName = normalizeHeader(name);
+        if (normalizedRow[normalizedName] !== undefined) {
+            return clean(normalizedRow[normalizedName]);
         }
     }
+
     return "";
 }
 
 function normalizeUrl(url) {
     url = clean(url);
-
     if (!url) return "";
-
-    if (url.startsWith("http")) {
-        return url;
-    }
-
+    if (url.startsWith("http")) return url;
     return "https://" + url;
 }
 
@@ -211,11 +122,7 @@ function makeLinks(text) {
         function(url) {
             let cleanUrl = url.replace(/[.,;)]$/, "");
             let punctuation = url.slice(cleanUrl.length);
-            let href = cleanUrl;
-
-            if (!href.startsWith("http")) {
-                href = "https://" + href;
-            }
+            let href = cleanUrl.startsWith("http") ? cleanUrl : "https://" + cleanUrl;
 
             return `<a href="${href}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${punctuation}`;
         }
@@ -301,6 +208,7 @@ function loadCSV(file) {
 
                         type: get(row, [
                             "Publication Type (Academic Journal Article; Media Op-Ed, etc.)-- Use drop down list",
+                            "Publication Type (Academic Journal Article; Media Op-Ed, etc.)-- Use drop down list",
                             "Publication Type",
                             "Type"
                         ]),
@@ -334,7 +242,8 @@ function loadCSV(file) {
                 resolve(rows);
             },
 
-            error: function() {
+            error: function(error) {
+                console.error("Could not load:", file.path, error);
                 resolve([]);
             }
         });
@@ -342,27 +251,10 @@ function loadCSV(file) {
 }
 
 function populateFilters() {
-    const recordTypes =
-        [...new Set(records.map(r => r.recordType).filter(Boolean))]
-        .sort();
-
-    const years =
-        [...new Set(records.map(r => r.year).filter(Boolean))]
-        .sort()
-        .reverse();
-
-    const statuses =
-        [...new Set(records.map(r => r.status).filter(Boolean))]
-        .sort();
-
-    const types =
-        [...new Set(records.map(r => r.type).filter(Boolean))]
-        .sort();
-
-    addOptions("recordTypeFilter", recordTypes);
-    addOptions("yearFilter", years);
-    addOptions("statusFilter", statuses);
-    addOptions("typeFilter", types);
+    addOptions("recordTypeFilter", [...new Set(records.map(r => r.recordType).filter(Boolean))].sort());
+    addOptions("yearFilter", [...new Set(records.map(r => r.year).filter(Boolean))].sort().reverse());
+    addOptions("statusFilter", [...new Set(records.map(r => r.status).filter(Boolean))].sort());
+    addOptions("typeFilter", [...new Set(records.map(r => r.type).filter(Boolean))].sort());
 }
 
 function addOptions(id, values) {
@@ -370,31 +262,18 @@ function addOptions(id, values) {
 
     values.forEach(value => {
         const option = document.createElement("option");
-
         option.value = value;
         option.textContent = value;
-
         select.appendChild(option);
     });
 }
 
 function renderResults() {
-    const query =
-        document.getElementById("searchBox")
-        .value
-        .toLowerCase();
-
-    const recordType =
-        document.getElementById("recordTypeFilter").value;
-
-    const year =
-        document.getElementById("yearFilter").value;
-
-    const status =
-        document.getElementById("statusFilter").value;
-
-    const type =
-        document.getElementById("typeFilter").value;
+    const query = document.getElementById("searchBox").value.toLowerCase();
+    const recordType = document.getElementById("recordTypeFilter").value;
+    const year = document.getElementById("yearFilter").value;
+    const status = document.getElementById("statusFilter").value;
+    const type = document.getElementById("typeFilter").value;
 
     const filtered = records.filter(record => {
         const searchable = [
@@ -432,11 +311,7 @@ function renderResults() {
     results.innerHTML = "";
 
     if (filtered.length === 0) {
-        results.innerHTML =
-            `<div class="warning">
-                No records match your current search.
-            </div>`;
-
+        results.innerHTML = `<div class="warning">No records match your current search.</div>`;
         return;
     }
 
@@ -444,18 +319,13 @@ function renderResults() {
         const div = document.createElement("div");
         div.className = "pub";
 
-        const liveCitation =
-            makeLinks(record.citation);
-
-        const recordUrl =
-            normalizeUrl(record.url);
+        const liveCitation = makeLinks(record.citation);
+        const recordUrl = normalizeUrl(record.url);
 
         div.innerHTML = `
             <div class="badge">${record.recordType || "Record"}</div>
 
-            <div class="citation">
-                ${liveCitation}
-            </div>
+            <div class="citation">${liveCitation}</div>
 
             <div class="meta">
                 <strong>Year:</strong> ${record.year || "N/A"} |
@@ -464,47 +334,31 @@ function renderResults() {
                 <strong>Type:</strong> ${record.type || "N/A"}
             </div>
 
-            ${
-                record.journal
-                ?
-                `<div class="meta">
-                    <strong>Journal:</strong> ${record.journal}
-                </div>`
-                :
-                ""
-            }
+            ${record.journal ? `<div class="meta"><strong>Journal:</strong> ${record.journal}</div>` : ""}
 
             ${
                 record.faculty || record.fellow
-                ?
-                `<div class="meta">
+                ? `<div class="meta">
                     <strong>Faculty:</strong> ${record.faculty || "N/A"} |
                     <strong>Fellow:</strong> ${record.fellow || "N/A"}
                 </div>`
-                :
-                ""
+                : ""
             }
 
             ${
                 record.allAuthors
-                ?
-                `<div class="meta">
-                    <strong>All CHOPR Authors:</strong> ${record.allAuthors}
-                </div>`
-                :
-                ""
+                ? `<div class="meta"><strong>All CHOPR Authors:</strong> ${record.allAuthors}</div>`
+                : ""
             }
 
             ${
                 record.topicTags || record.projectTags || record.datasetTags
-                ?
-                `<div class="meta">
+                ? `<div class="meta">
                     <strong>Topic Tags:</strong> ${record.topicTags || "N/A"} |
                     <strong>Project Tags:</strong> ${record.projectTags || "N/A"} |
                     <strong>Dataset Tags:</strong> ${record.datasetTags || "N/A"}
                 </div>`
-                :
-                ""
+                : ""
             }
 
             <div class="meta">
@@ -512,27 +366,12 @@ function renderResults() {
                 <strong>PMCID:</strong> ${record.pmcid || "N/A"}
             </div>
 
-            ${
-                record.notes
-                ?
-                `<div class="meta">
-                    <strong>Notes:</strong> ${record.notes}
-                </div>`
-                :
-                ""
-            }
+            ${record.notes ? `<div class="meta"><strong>Notes:</strong> ${record.notes}</div>` : ""}
 
             ${
                 recordUrl
-                ?
-                `<a class="button"
-                    href="${recordUrl}"
-                    target="_blank"
-                    rel="noopener noreferrer">
-                    View Link
-                </a>`
-                :
-                ""
+                ? `<a class="button" href="${recordUrl}" target="_blank" rel="noopener noreferrer">View Link</a>`
+                : ""
             }
         `;
 
@@ -541,11 +380,8 @@ function renderResults() {
 }
 
 async function init() {
-    const data =
-        await Promise.all(files.map(loadCSV));
-
-    records =
-        data.flat();
+    const data = await Promise.all(files.map(loadCSV));
+    records = data.flat();
 
     if (records.length === 0) {
         document.getElementById("results").innerHTML =
@@ -553,9 +389,7 @@ async function init() {
                 No data could be loaded. Confirm that publications_2025.csv, publications_2026.csv, and reading_list.csv are in the same docs folder as index.html.
             </div>`;
 
-        document.getElementById("stats").textContent =
-            "0 records loaded";
-
+        document.getElementById("stats").textContent = "0 records loaded";
         return;
     }
 
@@ -563,23 +397,13 @@ async function init() {
     renderResults();
 }
 
-document.getElementById("searchBox")
-    .addEventListener("input", renderResults);
-
-document.getElementById("recordTypeFilter")
-    .addEventListener("change", renderResults);
-
-document.getElementById("yearFilter")
-    .addEventListener("change", renderResults);
-
-document.getElementById("statusFilter")
-    .addEventListener("change", renderResults);
-
-document.getElementById("typeFilter")
-    .addEventListener("change", renderResults);
+document.getElementById("searchBox").addEventListener("input", renderResults);
+document.getElementById("recordTypeFilter").addEventListener("change", renderResults);
+document.getElementById("yearFilter").addEventListener("change", renderResults);
+document.getElementById("statusFilter").addEventListener("change", renderResults);
+document.getElementById("typeFilter").addEventListener("change", renderResults);
 
 init();
-
 </script>
 
 </body>
