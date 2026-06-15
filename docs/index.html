@@ -232,18 +232,13 @@ function loadCSV(file) {
             complete: function(results) {
                 const rows = results.data.map(row => {
                     const yearFromRow = get(row, [
-                        "Year",
                         "Publication Year",
+                        "Year",
                         "year"
                     ]);
 
-                    const categoryFromRow = get(row, [
-                        "Category",
-                        "Reading List Category",
-                        "category"
-                    ]);
-
                     const citationFromRow = get(row, [
+                        "Publication Title/Citation",
                         "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2025 to present)",
                         "Publication Title/Citation (RA from Tues/Thurs Meeting Announcements- Jan 2026 to present)",
                         "Title/Citation",
@@ -253,11 +248,17 @@ function loadCSV(file) {
                         "title"
                     ]);
 
+                    const categoryFromRow = get(row, [
+                        "Category",
+                        "Reading List Category",
+                        "category"
+                    ]);
+
                     const urlFromRow = get(row, [
-                        "Once published, URL to a) PMC version or b) if not NIH, URL to journal site (RA)",
                         "URL",
                         "Link",
-                        "url"
+                        "url",
+                        "Once published, URL to a) PMC version or b) if not NIH, URL to journal site (RA)"
                     ]);
 
                     return {
@@ -284,6 +285,10 @@ function loadCSV(file) {
 
                         citation: citationFromRow,
 
+                        journal: get(row, [
+                            "Journal"
+                        ]),
+
                         date: get(row, [
                             "Date of Acceptance (Tues mtg agenda date)",
                             "Date"
@@ -298,6 +303,18 @@ function loadCSV(file) {
                             "Publication Type (Academic Journal Article; Media Op-Ed, etc.)-- Use drop down list",
                             "Publication Type",
                             "Type"
+                        ]),
+
+                        topicTags: get(row, [
+                            "Topic Tags"
+                        ]),
+
+                        projectTags: get(row, [
+                            "Project Tags"
+                        ]),
+
+                        datasetTags: get(row, [
+                            "Dataset Tags"
                         ]),
 
                         pmcid: get(row, [
@@ -388,8 +405,12 @@ function renderResults() {
             record.fellow,
             record.allAuthors,
             record.citation,
+            record.journal,
             record.status,
             record.type,
+            record.topicTags,
+            record.projectTags,
+            record.datasetTags,
             record.pmcid,
             record.url,
             record.notes
@@ -444,6 +465,16 @@ function renderResults() {
             </div>
 
             ${
+                record.journal
+                ?
+                `<div class="meta">
+                    <strong>Journal:</strong> ${record.journal}
+                </div>`
+                :
+                ""
+            }
+
+            ${
                 record.faculty || record.fellow
                 ?
                 `<div class="meta">
@@ -459,6 +490,18 @@ function renderResults() {
                 ?
                 `<div class="meta">
                     <strong>All CHOPR Authors:</strong> ${record.allAuthors}
+                </div>`
+                :
+                ""
+            }
+
+            ${
+                record.topicTags || record.projectTags || record.datasetTags
+                ?
+                `<div class="meta">
+                    <strong>Topic Tags:</strong> ${record.topicTags || "N/A"} |
+                    <strong>Project Tags:</strong> ${record.projectTags || "N/A"} |
+                    <strong>Dataset Tags:</strong> ${record.datasetTags || "N/A"}
                 </div>`
                 :
                 ""
